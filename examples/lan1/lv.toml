@@ -1,0 +1,17 @@
+[Hello]
+description = "The number of cats a person has"
+one = "Sveiki"
+other = "Sveiki other."
+zero = "Sveiki 0"
+
+[HelloName]
+description = "The number of cats a person has"
+one = "{{.Name}} Sveiki"
+other = "{{.Name}} Sveiki other."
+zero = "{{.Name}} Sveiki 0"
+
+[PersonCats]
+description = "The number of cats a person has"
+one = "{{.Name}} Ir {{.Count}} kat"
+other = "{{.Name}} Ir daudzskaitlis {{.Count}} kat other."
+zero = "{{.Name}} nav kaķa"

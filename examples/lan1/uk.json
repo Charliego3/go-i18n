@@ -1,0 +1,23 @@
+{
+	"Hello": {
+		"description": "The number of cats a person has",
+		"one": "Бонгу one",
+		"few": "Бонгу few",
+		"many": "Бонгу many",
+		"other": "Бонгу other"
+	},
+	"HelloName": {
+		"description": "The number of cats a person has",
+		"one": "{{.Name}} Бонгу one",
+		"few": "{{.Name}} Бонгу few",
+		"many": "{{.Name}} Бонгу many",
+		"other": "{{.Name}} Бонгу other"
+	},
+	"PersonCats": {
+		"description": "The number of cats a person has",
+		"one": "{{.Name}} Є {{.Count}} кішки one",
+		"few": "{{.Name}} Є {{.Count}} кішки few",
+		"many": "{{.Name}} Є {{.Count}} кішки many",
+		"other": "{{.Name}} Є {{.Count}} кішки other"
+	}
+}

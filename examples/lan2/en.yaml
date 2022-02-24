@@ -1,0 +1,12 @@
+Hello:
+  one: "hello"
+  other: "hello other"
+
+HelloName:
+  one: "hello {{.Name}}"
+  other: "hello {{.Name}} other"
+
+PersonCats:
+  description: "The number of cats a person has"
+  one: "{{.Name}} has {{.Count}} cat."
+  other: "{{.Name}} has {{.Count}} cats other."

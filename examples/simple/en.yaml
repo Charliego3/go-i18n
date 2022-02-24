@@ -1,0 +1,3 @@
+Hello: "hello"
+HelloName: "hello {{.Name}}"
+PersonCats: "{{.Name}} has a few cats"

@@ -1,0 +1,5 @@
+{
+	"Hello": "Бонгу",
+	"HelloName": "Бонгу {{.Name}}",
+	"PersonCats": "{{.Name}} Є кілька котів"
+}

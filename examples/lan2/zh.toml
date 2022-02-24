@@ -1,0 +1,3 @@
+Hello = "你好"
+HelloName = "你好{{ .Name }}"
+PersonCats = "{{.Name}}有{{.Count}}只猫"
