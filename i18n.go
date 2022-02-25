@@ -32,18 +32,17 @@ func (f LangHandlerFunc) Language(r *http.Request) language.Tag {
 	return f(r)
 }
 
+const languageKey = "Accept-Language"
+
 func (_ ContextHandler) ServeHTTP(_ http.ResponseWriter, r *http.Request) {
 	lang := i.langHandler.Language(r)
-	key := "Accept-Language"
 	if i.ctx != nil {
-		if tag, ok := i.ctx.Value(key).(language.Tag); ok {
-			if tag.String() == lang.String() {
-				return
-			}
+		if tag, ok := i.ctx.Value(languageKey).(language.Tag); ok && tag == lang {
+			return
 		}
 	}
 
-	ctx := context.WithValue(r.Context(), key, lang)
+	ctx := context.WithValue(r.Context(), languageKey, lang)
 	i.ctx = ctx
 }
 
@@ -76,7 +75,7 @@ func (i *I18n) AddLoader(loader Loader) {
 func (i *I18n) GetMessage(p interface{}) (string, error) {
 	var lang language.Tag
 	if i.ctx != nil {
-		if value, ok := i.ctx.Value("Accept-Language").(language.Tag); ok {
+		if value, ok := i.ctx.Value(languageKey).(language.Tag); ok {
 			lang = value
 		}
 	}
@@ -188,7 +187,7 @@ type defaultLangHandler struct{}
 // Language header -> query -> form -> postForm
 func (g *defaultLangHandler) Language(r *http.Request) language.Tag {
 	lan := getLan(func() string {
-		return r.Header.Get("Accept-Language")
+		return r.Header.Get(languageKey)
 	}, func() string {
 		return r.URL.Query().Get(i.langKey)
 	}, func() string {
