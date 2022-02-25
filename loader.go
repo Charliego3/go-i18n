@@ -4,83 +4,114 @@ import (
 	"fmt"
 	"github.com/nicksnyder/go-i18n/v2/i18n"
 	"golang.org/x/text/language"
+	"io/fs"
+	"os"
 	"path/filepath"
 	"strings"
 )
 
 type Loader interface {
-	GetUnmarshalers() map[string]i18n.UnmarshalFunc
-	GetRootPath() string
-	Walk(func(path, ext string, lang language.Tag) error) error
-	LoadMessage(string) ([]byte, error)
+	ParseMessage(i *I18n) error
 }
 
-type PathFilter interface{ Filter(path string) bool }
-type PathFilterFunc func(path string) bool
-type LoaderOp interface{ Apply(cfg *loaderCfg) }
-type LoaderOpFunc func(cfg *loaderCfg)
-type rootPathOp string
+type LoaderOp interface{ apply(cfg *LoaderConfig) }
+type LoaderOpFunc func(cfg *LoaderConfig)
+type fss struct{ fs fs.FS }
 type unmarshalls map[string]i18n.UnmarshalFunc
-type filter struct{ PathFilter }
 type unmarshal struct {
 	format string
 	fn     i18n.UnmarshalFunc
 }
 
-func (f filter) Apply(cfg *loaderCfg)            { cfg.PathFilter = f.PathFilter }
-func (u unmarshalls) Apply(cfg *loaderCfg)       { cfg.Unmarshalers = u }
-func (r rootPathOp) Apply(cfg *loaderCfg)        { cfg.RootPath = string(r) }
-func (c LoaderOpFunc) Apply(cfg *loaderCfg)      { c(cfg) }
-func (f PathFilterFunc) Filter(path string) bool { return f(path) }
-func (u unmarshal) Apply(cfg *loaderCfg) {
-	if cfg.Unmarshalers == nil {
-		cfg.Unmarshalers = make(map[string]i18n.UnmarshalFunc)
+func (f fss) apply(cfg *LoaderConfig)          { cfg.fs = f.fs }
+func (u unmarshalls) apply(cfg *LoaderConfig)  { cfg.ums = u }
+func (c LoaderOpFunc) apply(cfg *LoaderConfig) { c(cfg) }
+func (u unmarshal) apply(cfg *LoaderConfig) {
+	if cfg.ums == nil {
+		cfg.ums = make(map[string]i18n.UnmarshalFunc)
 	}
-	cfg.Unmarshalers[u.format] = u.fn
+	cfg.ums[u.format] = u.fn
 }
 
-func LoaderRootPath(path string) LoaderOp                           { return rootPathOp(path) }
-func LoaderUnmarshalls(fns map[string]i18n.UnmarshalFunc) LoaderOp  { return unmarshalls(fns) }
-func LoaderFilter(f PathFilter) LoaderOp                            { return filter{f} }
-func LoaderUnmarshal(format string, fn i18n.UnmarshalFunc) LoaderOp { return unmarshal{format, fn} }
+func WithUnmarshalls(fns map[string]i18n.UnmarshalFunc) LoaderOp  { return unmarshalls(fns) }
+func WithUnmarshal(format string, fn i18n.UnmarshalFunc) LoaderOp { return unmarshal{format, fn} }
 
-type loaderCfg struct {
-	RootPath     string
-	Unmarshalers map[string]i18n.UnmarshalFunc
-	PathFilter   PathFilter
-}
-
-var defaultFilter = PathFilterFunc(func(path string) bool {
-	return len(filepath.Ext(path)) == 0
-})
-
-func (c *loaderCfg) apply(opts ...LoaderOp) {
+func NewLoaderWithPath(path string, opts ...LoaderOp) Loader {
+	loader := &LoaderConfig{}
+	opts = append(opts, fss{os.DirFS(path)})
 	for _, opt := range opts {
-		opt.Apply(c)
+		opt.apply(loader)
 	}
-	if c.PathFilter == nil {
-		c.PathFilter = defaultFilter
-	}
+	return loader
 }
 
-func (c *loaderCfg) getRootPath() string {
-	root := c.RootPath
-	if len(root) == 0 {
-		root = "."
+func NewLoaderWithFS(fs fs.FS, opts ...LoaderOp) Loader {
+	loader := &LoaderConfig{}
+	opts = append(opts, fss{fs})
+	for _, opt := range opts {
+		opt.apply(loader)
 	}
-	return root
+	return loader
 }
 
-func getLanguage(path string) (language.Tag, string, error) {
-	lans := strings.SplitN(path, ".", 3)
-	llen := len(lans)
-	if llen < 2 {
-		return language.Tag{}, "", fmt.Errorf("file type err: %s", path)
+type LoaderConfig struct {
+	fs  fs.FS
+	ums map[string]i18n.UnmarshalFunc
+}
+
+func (c *LoaderConfig) ParseMessage(i *I18n) error {
+	for format, ufn := range c.ums {
+		i.RegisterUnmarshalFunc(format, ufn)
 	}
 
-	tag, err := language.Parse(lans[llen-2])
+	return c.parseMessage(i, ".")
+}
+
+func (c *LoaderConfig) parser(path string, buf []byte) error {
+	_, file := filepath.Split(path)
+	ns := strings.Split(file, ".")
+	if len(file) == 0 || len(ns) < 2 {
+		return fmt.Errorf("the file %s not ext", path)
+	}
+
+	format := ns[1]
+	if _, ok := c.ums[format]; !ok {
+		i.registerUnmarshalFunc(format)
+	}
+
+	tag, err := language.Parse(ns[0])
 	if err != nil {
-		return language.Tag{}, "", err
+		return err
 	}
-	return tag, lans[llen-1], nil
+	i.SetLocalizer(tag)
+	i.MastParseMessageFileBytes(buf, path)
+	return nil
+}
+
+func (c *LoaderConfig) parseMessage(i *I18n, path string) error {
+	entries, err := fs.ReadDir(c.fs, path)
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		name := entry.Name()
+		fp := filepath.Join(path, name)
+		if entry.IsDir() {
+			err := c.parseMessage(i, fp)
+			if err != nil {
+				return err
+			}
+		} else {
+			buf, err := fs.ReadFile(c.fs, fp)
+			if err != nil {
+				return err
+			}
+			err = c.parser(fp, buf)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
