@@ -41,7 +41,7 @@ func (s *ginServer) request(lan language.Tag, messageId, data string, count int6
 }
 
 func TestSimple(t *testing.T) {
-	instance = nil
+	i = nil
 	business := func(engine *ginServer) {
 		engine.GET("/:messageId", func(ctx *gin.Context) {
 			ctx.String(http.StatusOK, MustGetMessage(ctx.Param("messageId")))
@@ -56,7 +56,10 @@ func TestSimple(t *testing.T) {
 			}))
 		})
 	}
-	gs := newGinServer(business, Localize(language.Chinese, WithLoader(NewFileLoader(LoaderRootPath("./examples/simple")))))
+
+	gs := newGinServer(business,
+		gin.WrapH(Localize(language.Chinese,
+			WithLoader(NewLoaderWithPath("./examples/simple")))))
 
 	type args struct {
 		lng       language.Tag
@@ -96,7 +99,7 @@ func TestSimple(t *testing.T) {
 var lan2Embed embed.FS
 
 func TestLocalize(t *testing.T) {
-	instance = nil
+	i = nil
 	business := func(engine *ginServer) {
 		engine.GET("/default/:messageId", func(ctx *gin.Context) {
 			ctx.String(http.StatusOK, MustGetMessage(ctx.Param("messageId")))
@@ -121,11 +124,10 @@ func TestLocalize(t *testing.T) {
 			}))
 		})
 	}
-	gs := newGinServer(business, Localize(
-		language.Chinese,
-		WithLoader(NewEmbedLoader(lan2Embed, LoaderRootPath("examples/lan2"))),
-		WithLoader(NewFileLoader(LoaderRootPath("./examples/lan1"))),
-	))
+	gs := newGinServer(business,
+		gin.WrapH(Localize(language.Chinese,
+			WithLoader(NewLoaderWithFS(lan2Embed)),
+			WithLoader(NewLoaderWithPath("examples/lan1")))))
 
 	type args struct {
 		lng       language.Tag

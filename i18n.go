@@ -2,62 +2,218 @@ package i18n
 
 import (
 	"context"
-	"github.com/gin-gonic/gin"
-	"golang.org/x/text/language"
+	"encoding/json"
+	"fmt"
+	"github.com/BurntSushi/toml"
+	"github.com/nicksnyder/go-i18n/v2/i18n"
+	language "golang.org/x/text/language"
+	"gopkg.in/yaml.v2"
+	"net/http"
 )
 
-type I18n interface {
-	Option
-	RegisterLang(language.Tag)
-	AddLoader(Loader)
-	GetMessage(interface{}) (string, error)
-	MustGetMessage(interface{}) string
-	SetLangHandler(LangHandler)
-	SetCurrentContext(context.Context)
+type LocalizeConfig = i18n.LocalizeConfig
+type Option interface{ apply(*I18n) }
+type ContextHandler struct{}
+type LangHandler interface {
+	Language(*http.Request) language.Tag
 }
 
-type Option interface{ Apply(I18n) }
-type OptionFunc func(I18n)
+type OptionFunc func(*I18n)
 type loader struct{ Loader }
 type langHandler struct{ LangHandler }
-type LangHandlerFunc func(context context.Context, defaultLng string) string
-type LangHandler interface {
-	GetLang(context context.Context, defaultLang string) string
+type LangHandlerFunc func(*http.Request) language.Tag
+type langKey string
+
+func (l langKey) apply(n *I18n)     { n.langKey = string(l) }
+func (l loader) apply(n *I18n)      { n.AddLoader(l) }
+func (f OptionFunc) apply(n *I18n)  { f(n) }
+func (h langHandler) apply(n *I18n) { n.langHandler = h }
+func (f LangHandlerFunc) Language(r *http.Request) language.Tag {
+	return f(r)
 }
 
-func (l loader) Apply(n I18n)      { n.AddLoader(l) }
-func (f OptionFunc) Apply(n I18n)  { f(n) }
-func (h langHandler) Apply(n I18n) { n.SetLangHandler(h) }
-func (f LangHandlerFunc) GetLang(context context.Context, defaultLang string) string {
-	return f(context, defaultLang)
+func (_ ContextHandler) ServeHTTP(_ http.ResponseWriter, r *http.Request) {
+	lang := i.langHandler.Language(r)
+	key := "Accept-Language"
+	if i.ctx != nil {
+		if tag, ok := i.ctx.Value(key).(language.Tag); ok {
+			if tag.String() == lang.String() {
+				return
+			}
+		}
+	}
+
+	ctx := context.WithValue(r.Context(), key, lang)
+	i.ctx = ctx
 }
 
 func WithLoader(l Loader) Option                 { return loader{l} }
 func WithLangHandler(handler LangHandler) Option { return langHandler{handler} }
+func WithLangKey(key string) Option              { return langKey(key) }
 
-var instance I18n
+type I18n struct {
+	bundle      *i18n.Bundle
+	language    language.Tag
+	localizes   map[language.Tag]*i18n.Localizer
+	langHandler LangHandler
+	langKey     string
+	ctx         context.Context
+}
 
-func Localize(defaultLang language.Tag, opts ...Option) gin.HandlerFunc {
-	if n, ok := opts[0].(I18n); ok {
-		instance = n
-	} else if instance == nil {
-		instance = &i18nImpl{}
+func (i *I18n) SetDefaultLang(lang language.Tag) {
+	i.language = lang
+	i.bundle = i18n.NewBundle(lang)
+}
+
+func (i *I18n) AddLoader(loader Loader) {
+	err := loader.ParseMessage(i)
+	if err != nil {
+		panic(err)
+	}
+	i.SetLocalizer(i.language)
+}
+
+func (i *I18n) GetMessage(p interface{}) (string, error) {
+	var lang language.Tag
+	if i.ctx != nil {
+		if value, ok := i.ctx.Value("Accept-Language").(language.Tag); ok {
+			lang = value
+		}
 	}
 
-	instance.RegisterLang(defaultLang)
+	if lang.IsRoot() {
+		lang = i.language
+	}
+	lr := i.getLocalizer(lang)
+
+	var config *i18n.LocalizeConfig
+
+	switch t := p.(type) {
+	case string:
+		config = &i18n.LocalizeConfig{MessageID: t}
+	case i18n.LocalizeConfig:
+		config = &t
+	case *i18n.LocalizeConfig:
+		config = t
+	default:
+		return "", fmt.Errorf("unsupported param %T", p)
+	}
+
+	translated, err := lr.Localize(config)
+	if err != nil || len(translated) == 0 {
+		return config.MessageID, err
+	}
+	return translated, nil
+}
+
+func (i *I18n) registerUnmarshalFunc(format string) {
+	var fn i18n.UnmarshalFunc
+	switch format {
+	case "json":
+		fn = json.Unmarshal
+	case "toml":
+		fn = toml.Unmarshal
+	case "yaml":
+		fn = yaml.Unmarshal
+	}
+
+	if fn != nil {
+		i.RegisterUnmarshalFunc(format, fn)
+	}
+}
+
+func (i *I18n) RegisterUnmarshalFunc(format string, unmarshalFunc i18n.UnmarshalFunc) {
+	i.bundle.RegisterUnmarshalFunc(format, unmarshalFunc)
+}
+
+func (i *I18n) MastParseMessageFileBytes(buf []byte, path string) {
+	i.bundle.MustParseMessageFileBytes(buf, path)
+}
+
+func (i *I18n) SetLocalizer(lang language.Tag) {
+	if _, ok := i.localizes[lang]; ok {
+		return
+	}
+
+	if i.localizes == nil {
+		i.localizes = make(map[language.Tag]*i18n.Localizer)
+	}
+
+	langs := []string{lang.String()}
+	if lang != i.language {
+		langs = append(langs, i.language.String())
+	}
+
+	i.localizes[lang] = i18n.NewLocalizer(i.bundle, langs...)
+}
+
+func (i *I18n) getLocalizer(lang language.Tag) *i18n.Localizer {
+	if lr, ok := i.localizes[lang]; ok {
+		return lr
+	}
+
+	return i.localizes[i.language]
+}
+
+var i *I18n
+
+func Localize(defaultLang language.Tag, opts ...Option) ContextHandler {
+	i = &I18n{}
+	i.SetDefaultLang(defaultLang)
 	for _, opt := range opts {
-		opt.Apply(instance)
+		opt.apply(i)
 	}
 
-	return func(ctx *gin.Context) {
-		instance.SetCurrentContext(ctx)
+	if i.langHandler == nil {
+		i.langHandler = &defaultLangHandler{}
 	}
+
+	if len(i.langKey) == 0 {
+		i.langKey = "lang"
+	}
+	return ContextHandler{}
 }
 
-func GetMessage(messageId LocalizeConfig) (string, error) {
-	return instance.GetMessage(messageId)
+func GetMessage(messageId interface{}) (string, error) {
+	return i.GetMessage(messageId)
 }
 
-func MustGetMessage(messageId LocalizeConfig) string {
-	return instance.MustGetMessage(messageId)
+func MustGetMessage(messageId interface{}) string {
+	message, _ := GetMessage(messageId)
+	return message
+}
+
+type defaultLangHandler struct{}
+
+// Language header -> query -> form -> postForm
+func (g *defaultLangHandler) Language(r *http.Request) language.Tag {
+	lan := getLan(func() string {
+		return r.Header.Get("Accept-Language")
+	}, func() string {
+		return r.URL.Query().Get(i.langKey)
+	}, func() string {
+		return r.FormValue(i.langKey)
+	}, func() string {
+		return r.PostFormValue(i.langKey)
+	})
+
+	if len(lan) > 0 {
+		tag, err := language.Parse(lan)
+		if err != nil {
+			return i.language
+		}
+		return tag
+	}
+
+	return i.language
+}
+
+func getLan(fns ...func() string) string {
+	for _, fn := range fns {
+		lan := fn()
+		if len(lan) > 0 {
+			return lan
+		}
+	}
+	return ""
 }
