@@ -67,7 +67,7 @@ func (c *LoaderConfig) ParseMessage(i *I18n) error {
 	return c.parseMessage(i, ".")
 }
 
-func (c *LoaderConfig) parser(path string, buf []byte) error {
+func (c *LoaderConfig) parse(path string, buf []byte) error {
 	_, file := filepath.Split(path)
 	ns := strings.Split(file, ".")
 	if len(file) == 0 || len(ns) < 2 {
@@ -107,7 +107,7 @@ func (c *LoaderConfig) parseMessage(i *I18n, path string) error {
 			if err != nil {
 				return err
 			}
-			err = c.parser(fp, buf)
+			err = c.parse(fp, buf)
 			if err != nil {
 				return err
 			}
