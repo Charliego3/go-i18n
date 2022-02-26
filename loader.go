@@ -15,14 +15,12 @@ type Loader interface {
 
 type LoaderOp interface{ apply(cfg *LoaderConfig) }
 type LoaderOpFunc func(cfg *LoaderConfig)
-type fss struct{ fs fs.FS }
 type unmarshalls map[string]UnmarshalFunc
 type unmarshal struct {
 	format string
 	fn     UnmarshalFunc
 }
 
-func (f fss) apply(cfg *LoaderConfig)          { cfg.fs = f.fs }
 func (u unmarshalls) apply(cfg *LoaderConfig)  { cfg.ums = u }
 func (c LoaderOpFunc) apply(cfg *LoaderConfig) { c(cfg) }
 func (u unmarshal) apply(cfg *LoaderConfig) {
@@ -36,8 +34,7 @@ func WithUnmarshalls(fns map[string]UnmarshalFunc) LoaderOp  { return unmarshall
 func WithUnmarshal(format string, fn UnmarshalFunc) LoaderOp { return unmarshal{format, fn} }
 
 func NewLoaderWithPath(path string, opts ...LoaderOp) Loader {
-	loader := &LoaderConfig{}
-	opts = append(opts, fss{os.DirFS(path)})
+	loader := &LoaderConfig{fs: os.DirFS(path)}
 	for _, opt := range opts {
 		opt.apply(loader)
 	}
@@ -45,8 +42,7 @@ func NewLoaderWithPath(path string, opts ...LoaderOp) Loader {
 }
 
 func NewLoaderWithFS(fs fs.FS, opts ...LoaderOp) Loader {
-	loader := &LoaderConfig{}
-	opts = append(opts, fss{fs})
+	loader := &LoaderConfig{fs: fs}
 	for _, opt := range opts {
 		opt.apply(loader)
 	}
