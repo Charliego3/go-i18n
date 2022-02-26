@@ -44,11 +44,11 @@ func TestSimple(t *testing.T) {
 	i = nil
 	business := func(engine *ginServer) {
 		engine.GET("/:messageId", func(ctx *gin.Context) {
-			ctx.String(http.StatusOK, MustGetMessage(ctx.Param("messageId")))
+			ctx.String(http.StatusOK, MustTr(ctx.Param("messageId")))
 		})
 
 		engine.GET("/:messageId/:name", func(ctx *gin.Context) {
-			ctx.String(http.StatusOK, MustGetMessage(&i18n.LocalizeConfig{
+			ctx.String(http.StatusOK, MustTr(&i18n.LocalizeConfig{
 				MessageID: ctx.Param("messageId"),
 				TemplateData: map[string]string{
 					"Name": ctx.Param("name"),
@@ -102,11 +102,11 @@ func TestLocalize(t *testing.T) {
 	i = nil
 	business := func(engine *ginServer) {
 		engine.GET("/default/:messageId", func(ctx *gin.Context) {
-			ctx.String(http.StatusOK, MustGetMessage(ctx.Param("messageId")))
+			ctx.String(http.StatusOK, MustTr(ctx.Param("messageId")))
 		})
 
 		engine.GET("/:messageId", func(ctx *gin.Context) {
-			ctx.String(http.StatusOK, MustGetMessage(&i18n.LocalizeConfig{
+			ctx.String(http.StatusOK, MustTr(&i18n.LocalizeConfig{
 				MessageID:   ctx.Param("messageId"),
 				PluralCount: ctx.Query("count"),
 			}))
@@ -114,7 +114,7 @@ func TestLocalize(t *testing.T) {
 
 		engine.GET("/:messageId/:name", func(ctx *gin.Context) {
 			count := ctx.Query("count")
-			ctx.String(http.StatusOK, MustGetMessage(&i18n.LocalizeConfig{
+			ctx.String(http.StatusOK, MustTr(&i18n.LocalizeConfig{
 				MessageID: ctx.Param("messageId"),
 				TemplateData: map[string]string{
 					"Name":  ctx.Param("name"),
