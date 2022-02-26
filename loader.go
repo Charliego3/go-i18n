@@ -13,17 +13,17 @@ type Loader interface {
 	ParseMessage(i *I18n) error
 }
 
-type LoaderOp interface{ apply(cfg *LoaderConfig) }
-type LoaderOpFunc func(cfg *LoaderConfig)
+type LoaderOp interface{ apply(cfg *FSLoader) }
+type LoaderOpFunc func(cfg *FSLoader)
 type unmarshalls map[string]UnmarshalFunc
 type unmarshal struct {
 	format string
 	fn     UnmarshalFunc
 }
 
-func (u unmarshalls) apply(cfg *LoaderConfig)  { cfg.ums = u }
-func (c LoaderOpFunc) apply(cfg *LoaderConfig) { c(cfg) }
-func (u unmarshal) apply(cfg *LoaderConfig) {
+func (u unmarshalls) apply(cfg *FSLoader)  { cfg.ums = u }
+func (c LoaderOpFunc) apply(cfg *FSLoader) { c(cfg) }
+func (u unmarshal) apply(cfg *FSLoader) {
 	if cfg.ums == nil {
 		cfg.ums = make(map[string]UnmarshalFunc)
 	}
@@ -34,7 +34,7 @@ func WithUnmarshalls(fns map[string]UnmarshalFunc) LoaderOp  { return unmarshall
 func WithUnmarshal(format string, fn UnmarshalFunc) LoaderOp { return unmarshal{format, fn} }
 
 func NewLoaderWithPath(path string, opts ...LoaderOp) Loader {
-	loader := &LoaderConfig{fs: os.DirFS(path)}
+	loader := &FSLoader{fs: os.DirFS(path)}
 	for _, opt := range opts {
 		opt.apply(loader)
 	}
@@ -42,19 +42,19 @@ func NewLoaderWithPath(path string, opts ...LoaderOp) Loader {
 }
 
 func NewLoaderWithFS(fs fs.FS, opts ...LoaderOp) Loader {
-	loader := &LoaderConfig{fs: fs}
+	loader := &FSLoader{fs: fs}
 	for _, opt := range opts {
 		opt.apply(loader)
 	}
 	return loader
 }
 
-type LoaderConfig struct {
+type FSLoader struct {
 	fs  fs.FS
 	ums map[string]UnmarshalFunc
 }
 
-func (c *LoaderConfig) ParseMessage(i *I18n) error {
+func (c *FSLoader) ParseMessage(i *I18n) error {
 	for format, ufn := range c.ums {
 		i.RegisterUnmarshalFunc(format, ufn)
 	}
@@ -62,7 +62,7 @@ func (c *LoaderConfig) ParseMessage(i *I18n) error {
 	return c.parseMessage(i, ".")
 }
 
-func (c *LoaderConfig) parse(name string, buf []byte) error {
+func (c *FSLoader) parse(name string, buf []byte) error {
 	ns := strings.Split(name, ".")
 	if len(name) == 0 || len(ns) < 2 {
 		return fmt.Errorf("the file %s not ext", name)
@@ -82,7 +82,7 @@ func (c *LoaderConfig) parse(name string, buf []byte) error {
 	return nil
 }
 
-func (c *LoaderConfig) parseMessage(i *I18n, path string) error {
+func (c *FSLoader) parseMessage(i *I18n, path string) error {
 	entries, err := fs.ReadDir(c.fs, path)
 	if err != nil {
 		return err
