@@ -126,8 +126,8 @@ func TestLocalize(t *testing.T) {
 	}
 	gs := newGinServer(business,
 		gin.WrapH(Localize(language.Chinese,
-			WithLoader(NewLoaderWithFS(lan2Embed)),
-			WithLoader(NewLoaderWithPath("examples/lan1")))))
+			WithLoader(NewLoaderWithFS(lan2Embed),
+				NewLoaderWithPath("examples/lan1")))))
 
 	type args struct {
 		lng       language.Tag

@@ -12,6 +12,7 @@ import (
 )
 
 type LocalizeConfig = i18n.LocalizeConfig
+type UnmarshalFunc = i18n.UnmarshalFunc
 type Option interface{ apply(*I18n) }
 type ContextHandler struct{}
 type LangHandler interface {
@@ -19,17 +20,19 @@ type LangHandler interface {
 }
 
 type OptionFunc func(*I18n)
-type loader struct{ Loader }
+type loaders struct{ ls []Loader }
 type langHandler struct{ LangHandler }
 type LangHandlerFunc func(*http.Request) language.Tag
 type langKey string
 
-func (l langKey) apply(n *I18n)     { n.langKey = string(l) }
-func (l loader) apply(n *I18n)      { n.AddLoader(l) }
-func (f OptionFunc) apply(n *I18n)  { f(n) }
-func (h langHandler) apply(n *I18n) { n.langHandler = h }
-func (f LangHandlerFunc) Language(r *http.Request) language.Tag {
-	return f(r)
+func (l langKey) apply(i *I18n)                                 { i.langKey = string(l) }
+func (f OptionFunc) apply(i *I18n)                              { f(i) }
+func (h langHandler) apply(i *I18n)                             { i.langHandler = h }
+func (f LangHandlerFunc) Language(r *http.Request) language.Tag { return f(r) }
+func (l loaders) apply(i *I18n) {
+	for _, l := range l.ls {
+		i.AddLoader(l)
+	}
 }
 
 const languageKey = "Accept-Language"
@@ -46,7 +49,7 @@ func (_ ContextHandler) ServeHTTP(_ http.ResponseWriter, r *http.Request) {
 	i.ctx = ctx
 }
 
-func WithLoader(l Loader) Option                 { return loader{l} }
+func WithLoader(ls ...Loader) Option             { return loaders{ls} }
 func WithLangHandler(handler LangHandler) Option { return langHandler{handler} }
 func WithLangKey(key string) Option              { return langKey(key) }
 
@@ -106,7 +109,7 @@ func (i *I18n) GetMessage(p interface{}) (string, error) {
 }
 
 func (i *I18n) registerUnmarshalFunc(format string) {
-	var fn i18n.UnmarshalFunc
+	var fn UnmarshalFunc
 	switch format {
 	case "json":
 		fn = json.Unmarshal
@@ -121,7 +124,7 @@ func (i *I18n) registerUnmarshalFunc(format string) {
 	}
 }
 
-func (i *I18n) RegisterUnmarshalFunc(format string, unmarshalFunc i18n.UnmarshalFunc) {
+func (i *I18n) RegisterUnmarshalFunc(format string, unmarshalFunc UnmarshalFunc) {
 	i.bundle.RegisterUnmarshalFunc(format, unmarshalFunc)
 }
 

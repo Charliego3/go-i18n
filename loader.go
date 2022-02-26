@@ -2,7 +2,6 @@ package i18n
 
 import (
 	"fmt"
-	"github.com/nicksnyder/go-i18n/v2/i18n"
 	"golang.org/x/text/language"
 	"io/fs"
 	"os"
@@ -17,10 +16,10 @@ type Loader interface {
 type LoaderOp interface{ apply(cfg *LoaderConfig) }
 type LoaderOpFunc func(cfg *LoaderConfig)
 type fss struct{ fs fs.FS }
-type unmarshalls map[string]i18n.UnmarshalFunc
+type unmarshalls map[string]UnmarshalFunc
 type unmarshal struct {
 	format string
-	fn     i18n.UnmarshalFunc
+	fn     UnmarshalFunc
 }
 
 func (f fss) apply(cfg *LoaderConfig)          { cfg.fs = f.fs }
@@ -28,13 +27,13 @@ func (u unmarshalls) apply(cfg *LoaderConfig)  { cfg.ums = u }
 func (c LoaderOpFunc) apply(cfg *LoaderConfig) { c(cfg) }
 func (u unmarshal) apply(cfg *LoaderConfig) {
 	if cfg.ums == nil {
-		cfg.ums = make(map[string]i18n.UnmarshalFunc)
+		cfg.ums = make(map[string]UnmarshalFunc)
 	}
 	cfg.ums[u.format] = u.fn
 }
 
-func WithUnmarshalls(fns map[string]i18n.UnmarshalFunc) LoaderOp  { return unmarshalls(fns) }
-func WithUnmarshal(format string, fn i18n.UnmarshalFunc) LoaderOp { return unmarshal{format, fn} }
+func WithUnmarshalls(fns map[string]UnmarshalFunc) LoaderOp  { return unmarshalls(fns) }
+func WithUnmarshal(format string, fn UnmarshalFunc) LoaderOp { return unmarshal{format, fn} }
 
 func NewLoaderWithPath(path string, opts ...LoaderOp) Loader {
 	loader := &LoaderConfig{}
@@ -56,7 +55,7 @@ func NewLoaderWithFS(fs fs.FS, opts ...LoaderOp) Loader {
 
 type LoaderConfig struct {
 	fs  fs.FS
-	ums map[string]i18n.UnmarshalFunc
+	ums map[string]UnmarshalFunc
 }
 
 func (c *LoaderConfig) ParseMessage(i *I18n) error {
@@ -67,11 +66,10 @@ func (c *LoaderConfig) ParseMessage(i *I18n) error {
 	return c.parseMessage(i, ".")
 }
 
-func (c *LoaderConfig) parse(path string, buf []byte) error {
-	_, file := filepath.Split(path)
-	ns := strings.Split(file, ".")
-	if len(file) == 0 || len(ns) < 2 {
-		return fmt.Errorf("the file %s not ext", path)
+func (c *LoaderConfig) parse(name string, buf []byte) error {
+	ns := strings.Split(name, ".")
+	if len(name) == 0 || len(ns) < 2 {
+		return fmt.Errorf("the file %s not ext", name)
 	}
 
 	format := ns[1]
@@ -84,7 +82,7 @@ func (c *LoaderConfig) parse(path string, buf []byte) error {
 		return err
 	}
 	i.SetLocalizer(tag)
-	i.MastParseMessageFileBytes(buf, path)
+	i.MastParseMessageFileBytes(buf, name)
 	return nil
 }
 
@@ -107,7 +105,7 @@ func (c *LoaderConfig) parseMessage(i *I18n, path string) error {
 			if err != nil {
 				return err
 			}
-			err = c.parse(fp, buf)
+			err = c.parse(name, buf)
 			if err != nil {
 				return err
 			}

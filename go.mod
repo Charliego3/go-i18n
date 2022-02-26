@@ -1,4 +1,4 @@
-module github.com/whimthen/i18n
+module github.com/Charliego93/i18n
 
 go 1.17
 
