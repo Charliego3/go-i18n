@@ -11,7 +11,7 @@ Provides simplicity and ease of use, no specific framework restrictions, easy ac
 
 - [Installation](#installation)
 - [Usage](#usage)
-- [Customer](#customer)
+- [Customize Loader](#customize-loader)
 - [License](#license)
 
 ## Installation
@@ -74,10 +74,10 @@ func main() {
 }
 ```
 
-## Customer
+## Customize Loader
 
 You can implement your own `Loader` by yourself, and even pull the language files from any 
-possible place to use, just pay attention when implementing the `ParseMessage(i I18n) error` function:
+possible place to use, just pay attention when implementing the `ParseMessage(i *I18n) error` function:
 1. At least need to call `i.SetLocalizer(language.Tag)` and `i.MastParseMessageFileBytes([]byte, string)` to register with `Bundle`
     - `[]byte` is the file content
     - `string` is the file path: mainly used to parse the language and serialization type, for example: `en.yaml`
