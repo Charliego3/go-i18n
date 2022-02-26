@@ -26,19 +26,12 @@ jobs:
         go-version: ${{ matrix.go }}
 
     - name: Test with coverageprofile
-      run: go test -v -coverprofile=profile.cov ./...
+      run: go test -v -race -covermode atomic -coverprofile=covprofile ./...
 
-    - name: Coverage
-      uses: shogo82148/actions-goveralls@v1
-      with:
-        path-to-profile: profile.cov
-        flag-name: Go-${{ matrix.go }}
-        parallel: true
+    - name: Install goveralls
+      run: go install github.com/mattn/goveralls@latest
 
-  finish:
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: shogo82148/actions-goveralls@v1
-        with:
-          parallel-finished: true
+    - name: Send coverage
+      env:
+        COVERALLS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: goveralls -coverprofile=covprofile -service=github
