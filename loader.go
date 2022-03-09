@@ -9,10 +9,7 @@ import (
 	"strings"
 )
 
-type Loader interface {
-	ParseMessage(i *I18n) error
-}
-
+type Loader interface{ ParseMessage(i *I18n) error }
 type LoaderOp interface{ apply(cfg *FSLoader) }
 type LoaderOpFunc func(cfg *FSLoader)
 type unmarshalls map[string]UnmarshalFunc
@@ -36,20 +33,20 @@ func WithUnmarshalls(fns map[string]UnmarshalFunc) LoaderOp { return unmarshalls
 // WithUnmarshal register single format unmarshal func
 func WithUnmarshal(format string, fn UnmarshalFunc) LoaderOp { return unmarshal{format, fn} }
 
-func NewLoaderWithPath(path string, opts ...LoaderOp) Loader {
-	loader := &FSLoader{fs: os.DirFS(path)}
+func NewLoaderWithPath(path string, opts ...LoaderOp) Option {
+	l := &FSLoader{fs: os.DirFS(path)}
 	for _, opt := range opts {
-		opt.apply(loader)
+		opt.apply(l)
 	}
-	return loader
+	return loader{l}
 }
 
-func NewLoaderWithFS(fs fs.FS, opts ...LoaderOp) Loader {
-	loader := &FSLoader{fs: fs}
+func NewLoaderWithFS(fs fs.FS, opts ...LoaderOp) Option {
+	l := &FSLoader{fs: fs}
 	for _, opt := range opts {
-		opt.apply(loader)
+		opt.apply(l)
 	}
-	return loader
+	return loader{l}
 }
 
 type FSLoader struct {

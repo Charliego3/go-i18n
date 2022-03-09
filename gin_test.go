@@ -57,9 +57,7 @@ func TestSimple(t *testing.T) {
 		})
 	}
 
-	gs := newGinServer(business,
-		gin.WrapH(Localize(language.Chinese,
-			WithLoader(NewLoaderWithPath("./examples/simple")))))
+	gs := newGinServer(business, gin.WrapH(Localize(language.Chinese, NewLoaderWithPath("./examples/simple"))))
 
 	type args struct {
 		lng       language.Tag
@@ -125,9 +123,8 @@ func TestLocalize(t *testing.T) {
 		})
 	}
 	gs := newGinServer(business,
-		gin.WrapH(Localize(language.Chinese,
-			WithLoader(NewLoaderWithFS(lan2Embed),
-				NewLoaderWithPath("examples/lan1")))))
+		gin.WrapH(Localize(language.Chinese, NewLoaderWithFS(lan2Embed),
+			NewLoaderWithPath("examples/lan1"))))
 
 	type args struct {
 		lng       language.Tag

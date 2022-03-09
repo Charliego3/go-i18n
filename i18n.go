@@ -25,14 +25,11 @@
 // 		engine := gin.New()
 //
 // 		// returns the default language if the header and language key are not specified or if the language does not exist
-// 		engine.Use(gin.WrapH(i18n.Localize(language.Chinese,
-// 		i18n.WithLoader(i18n.NewLoaderWithPath("./examples/simple")))))
+// 		engine.Use(gin.WrapH(i18n.Localize(language.Chinese, i18n.NewLoaderWithPath("./examples/simple"))))
 //
 // 		// Use multi loader provider
 // 		// Built-in load from file and load from fs.FS
-// 		// engine.Use(gin.WrapH(i18n.Localize(language.Chinese,
-// 		// 	i18n.WithLoader(i18n.NewLoaderWithFS(langFS),
-// 		// 		i18n.NewLoaderWithPath("./examples/lan1")))))
+// 		// engine.Use(gin.WrapH(i18n.Localize(language.Chinese, i18n.NewLoaderWithFS(langFS), i18n.NewLoaderWithPath("./examples/lan1"))))
 //
 // 		// curl -H "Accept-Language: en" 'http://127.0.0.1:9090/Hello'  returns "hello"
 // 		// curl -H "Accept-Language: uk" 'http://127.0.0.1:9090/Hello'  returns "Бонгу"
@@ -89,21 +86,17 @@ type LangHandler interface {
 	Language(*http.Request) language.Tag
 }
 
+type loader struct{ l Loader }
+type langKey string
 type OptionFunc func(*I18n)
-type loaders struct{ ls []Loader }
 type langHandler struct{ LangHandler }
 type LangHandlerFunc func(*http.Request) language.Tag
-type langKey string
 
+func (l loader) apply(i *I18n)                                  { i.AddLoader(l.l) }
 func (l langKey) apply(i *I18n)                                 { i.langKey = string(l) }
 func (f OptionFunc) apply(i *I18n)                              { f(i) }
 func (h langHandler) apply(i *I18n)                             { i.langHandler = h }
 func (f LangHandlerFunc) Language(r *http.Request) language.Tag { return f(r) }
-func (l loaders) apply(i *I18n) {
-	for _, l := range l.ls {
-		i.AddLoader(l)
-	}
-}
 
 const languageKey = "Accept-Language"
 
@@ -125,9 +118,9 @@ func (_ ContextHandler) ServeHTTP(_ http.ResponseWriter, r *http.Request) {
 //
 //	//go:embed examples/lan2/*
 //	var langFS embed.FS
-//	i18n.Localize(language.Chinese, i18n.WithLoader(i18n.NewLoaderWithPath("language_file_path")))
-//	i18n.Localize(language.Chinese, i18n.WithLoader(i18n.NewLoaderWithFS(langFS, i18n.WithUnmarshal("json", json.Unmarshal))))
-func WithLoader(ls ...Loader) Option { return loaders{ls} }
+//	i18n.Localize(language.Chinese, i18n.NewLoaderWithPath("language_file_path"))
+//	i18n.Localize(language.Chinese, i18n.NewLoaderWithFS(langFS, i18n.WithUnmarshal("json", json.Unmarshal)))
+func WithLoader(l Loader) Option { return loader{l} }
 
 // WithLangHandler get the language from *http.Request,
 // default LangHandler the order of acquisition is: header(always get the value of Accept-Language) -> cookie -> query -> form -> postForm
@@ -135,7 +128,7 @@ func WithLoader(ls ...Loader) Option { return loaders{ls} }
 //
 // Example:
 //
-//	loader := i18n.WithLoader(i18n.NewLoaderWithPath("language_file_path"))
+//	loader := i18n.NewLoaderWithPath("language_file_path")
 //	i18n.Localize(language.Chinese, loader, i18n.WithLangHandler(i18n.LangHandlerFunc(func(r *http.Request) language.Tag {
 //		lang := r.Header.Get("Accept-Language")
 //		tag, err := language.Parse(lang)
@@ -151,7 +144,7 @@ func WithLangHandler(handler LangHandler) Option { return langHandler{handler} }
 //
 // Example:
 //
-//	i18n.loader := i18n.WithLoader(i18n.NewLoaderWithPath("language_file_path"))
+//	i18n.loader :=i18n.NewLoaderWithPath("language_file_path")
 //	i18n.Localize(language.Chinese, loader, i18n.WithLangKey("default_language_key"))
 func WithLangKey(key string) Option { return langKey(key) }
 

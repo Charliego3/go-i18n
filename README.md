@@ -42,14 +42,12 @@ func main() {
    engine := gin.New()
 
    // returns the default language if the header and language key are not specified or if the language does not exist
-   engine.Use(gin.WrapH(i18n.Localize(language.Chinese,
-      i18n.WithLoader(i18n.NewLoaderWithPath("./examples/simple")))))
+   engine.Use(gin.WrapH(i18n.Localize(language.Chinese, i18n.NewLoaderWithPath("./examples/simple"))))
 
    // Use multi loader provider
    // Built-in load from file and load from fs.FS
-   // engine.Use(gin.WrapH(i18n.Localize(language.Chinese,
-   // 	i18n.WithLoader(i18n.NewLoaderWithFS(langFS),
-   // 		i18n.NewLoaderWithPath("./examples/lan1")))))
+   // engine.Use(gin.WrapH(i18n.Localize(language.Chinese, 
+   //    i18n.NewLoaderWithFS(langFS), i18n.NewLoaderWithPath("./examples/lan1"))))
 
    // curl -H "Accept-Language: en" 'http://127.0.0.1:9090/Hello'  returns "hello"
    // curl -H "Accept-Language: uk" 'http://127.0.0.1:9090/Hello'  returns "Бонгу"
