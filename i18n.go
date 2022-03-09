@@ -1,3 +1,73 @@
+// Package i18n provides simplicity and ease of use, no specific framework restrictions, easy access to any framework based on http.Handler
+//
+// Installation:
+//
+// 	go get github.com/Charliego93/go-i18n
+//
+// Example:
+//
+// 	import (
+// 	 	"embed"
+// 		"encoding/json"
+// 		"fmt"
+// 		"github.com/BurntSushi/toml"
+// 		"github.com/Charliego93/go-i18n"
+// 	 	"github.com/gin-gonic/gin"
+// 		"golang.org/x/text/language"
+// 		"gopkg.in/yaml.v2"
+// 		"net/http"
+// 	)
+//
+// 	//go:embed examples/lan2/*
+// 	var langFS embed.FS
+//
+// 	func main() {
+// 		engine := gin.New()
+//
+// 		// returns the default language if the header and language key are not specified or if the language does not exist
+// 		engine.Use(gin.WrapH(i18n.Localize(language.Chinese,
+// 		i18n.WithLoader(i18n.NewLoaderWithPath("./examples/simple")))))
+//
+// 		// Use multi loader provider
+// 		// Built-in load from file and load from fs.FS
+// 		// engine.Use(gin.WrapH(i18n.Localize(language.Chinese,
+// 		// 	i18n.WithLoader(i18n.NewLoaderWithFS(langFS),
+// 		// 		i18n.NewLoaderWithPath("./examples/lan1")))))
+//
+// 		// curl -H "Accept-Language: en" 'http://127.0.0.1:9090/Hello'  returns "hello"
+// 		// curl -H "Accept-Language: uk" 'http://127.0.0.1:9090/Hello'  returns "Бонгу"
+// 		// curl 'http://127.0.0.1:9090/Hello?lang=en'  returns "hello"
+// 		// curl 'http://127.0.0.1:9090/Hello?lang=uk'  returns "Бонгу"
+// 		engine.GET("/:messageId", func(ctx *gin.Context) {
+// 			ctx.String(http.StatusOK, i18n.MustTr(ctx.Param("messageId")))
+// 		})
+//
+// 		// curl -H "Accept-Language: en" 'http://127.0.0.1:9090/HelloName/I18n'  returns "hello I18n"
+// 		// curl -H "Accept-Language: uk" 'http://127.0.0.1:9090/HelloName/I18n'  returns "Бонгу I18n"
+// 		// curl 'http://127.0.0.1:9090/HelloName/I18n?lang=en'  returns "hello I18n"
+// 		// curl 'http://127.0.0.1:9090/HelloName/I18n?lang=uk'  returns "Бонгу I18n"
+// 		engine.GET("/:messageId/:name", func(ctx *gin.Context) {
+// 			ctx.String(http.StatusOK, i18n.MustTr(&i18n.LocalizeConfig{
+// 			   MessageID: ctx.Param("messageId"),
+// 			   TemplateData: map[string]string{
+// 				  "Name": ctx.Param("name"),
+// 			   },
+// 			}))
+// 		})
+//
+// 		fmt.Println(engine.Run())
+// 	}
+//
+// Customize Loader
+//
+// You can implement your own Loader by yourself, and even pull the language files from any
+// possible place to use, just pay attention when implementing the ParseMessage(i *I18n) error function:
+// 1. At least need to call i.SetLocalizer(language.Tag) and i.MastParseMessageFileBytes([]byte, string) to register with Bundle
+//    - []byte is the file content
+//    - string is the file path: mainly used to parse the language and serialization type, for example: en.yaml
+// 2. Sometimes it is necessary to call i.RegisterUnmarshalFunc(string, UnmarshalFunc) to register the deserialization function:
+//   - string is the format type. eg: yaml
+//   - UnmarshalFunc eg: json.Unmarshal or yaml.Unmarshal
 package i18n
 
 import (
@@ -6,7 +76,7 @@ import (
 	"fmt"
 	"github.com/BurntSushi/toml"
 	"github.com/nicksnyder/go-i18n/v2/i18n"
-	language "golang.org/x/text/language"
+	"golang.org/x/text/language"
 	"gopkg.in/yaml.v2"
 	"net/http"
 )
@@ -49,9 +119,41 @@ func (_ ContextHandler) ServeHTTP(_ http.ResponseWriter, r *http.Request) {
 	i.ctx = ctx
 }
 
-func WithLoader(ls ...Loader) Option             { return loaders{ls} }
+// WithLoader Register the Loader interface to *I18n.bundle
+//
+// Example:
+//
+//	//go:embed examples/lan2/*
+//	var langFS embed.FS
+//	i18n.Localize(language.Chinese, i18n.WithLoader(i18n.NewLoaderWithPath("language_file_path")))
+//	i18n.Localize(language.Chinese, i18n.WithLoader(i18n.NewLoaderWithFS(langFS, i18n.WithUnmarshal("json", json.Unmarshal))))
+func WithLoader(ls ...Loader) Option { return loaders{ls} }
+
+// WithLangHandler get the language from *http.Request,
+// default LangHandler the order of acquisition is: header(always get the value of Accept-Language) -> cookie -> query -> form -> postForm
+// you can use WithLangKey change the default lang key
+//
+// Example:
+//
+//	loader := i18n.WithLoader(i18n.NewLoaderWithPath("language_file_path"))
+//	i18n.Localize(language.Chinese, loader, i18n.WithLangHandler(i18n.LangHandlerFunc(func(r *http.Request) language.Tag {
+//		lang := r.Header.Get("Accept-Language")
+//		tag, err := language.Parse(lang)
+//		if err != nil {
+//			return language.Chinese
+//		}
+//		return tag
+//	})))
 func WithLangHandler(handler LangHandler) Option { return langHandler{handler} }
-func WithLangKey(key string) Option              { return langKey(key) }
+
+// WithLangKey specifies the default language key when obtained from the LangHandler
+// Except from the Header, there is no limit if you specify LangHandler manually
+//
+// Example:
+//
+//	i18n.loader := i18n.WithLoader(i18n.NewLoaderWithPath("language_file_path"))
+//	i18n.Localize(language.Chinese, loader, i18n.WithLangKey("default_language_key"))
+func WithLangKey(key string) Option { return langKey(key) }
 
 type I18n struct {
 	bundle      *i18n.Bundle
@@ -159,6 +261,7 @@ func (i *I18n) getLocalizer(lang language.Tag) *i18n.Localizer {
 
 var i *I18n
 
+// Localize initialize i18n...
 func Localize(defaultLang language.Tag, opts ...Option) ContextHandler {
 	i = &I18n{}
 	i.SetDefaultLang(defaultLang)
@@ -176,10 +279,22 @@ func Localize(defaultLang language.Tag, opts ...Option) ContextHandler {
 	return ContextHandler{}
 }
 
+// Tr translate messageId to target language
+//
+// Example:
+//
+//	Tr("hello")
+//	Tr(LocalizeConfig{
+//		MessageID: "HelloName",
+//		TemplateData: map[string]string{
+//			"Name": "I18n",
+//		},
+//	})
 func Tr(messageId interface{}) (string, error) {
 	return i.Tr(messageId)
 }
 
+// MustTr called Tr but ignore error
 func MustTr(messageId interface{}) string {
 	message, _ := Tr(messageId)
 	return message
@@ -187,10 +302,16 @@ func MustTr(messageId interface{}) string {
 
 type defaultLangHandler struct{}
 
-// Language header -> query -> form -> postForm
+// Language header -> cookie -> query -> form -> postForm
 func (g *defaultLangHandler) Language(r *http.Request) language.Tag {
 	lan := getLan(func() string {
 		return r.Header.Get(languageKey)
+	}, func() string {
+		c, err := r.Cookie(i.langKey)
+		if err != nil {
+			return ""
+		}
+		return c.Value
 	}, func() string {
 		return r.URL.Query().Get(i.langKey)
 	}, func() string {

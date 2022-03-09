@@ -21,16 +21,19 @@ type unmarshal struct {
 	fn     UnmarshalFunc
 }
 
-func (u unmarshalls) apply(cfg *FSLoader)  { cfg.ums = u }
-func (c LoaderOpFunc) apply(cfg *FSLoader) { c(cfg) }
-func (u unmarshal) apply(cfg *FSLoader) {
-	if cfg.ums == nil {
-		cfg.ums = make(map[string]UnmarshalFunc)
+func (u unmarshalls) apply(l *FSLoader)  { l.ums = u }
+func (c LoaderOpFunc) apply(l *FSLoader) { c(l) }
+func (u unmarshal) apply(l *FSLoader) {
+	if l.ums == nil {
+		l.ums = make(map[string]UnmarshalFunc)
 	}
-	cfg.ums[u.format] = u.fn
+	l.ums[u.format] = u.fn
 }
 
-func WithUnmarshalls(fns map[string]UnmarshalFunc) LoaderOp  { return unmarshalls(fns) }
+// WithUnmarshalls register multi format unmarshal func
+func WithUnmarshalls(fns map[string]UnmarshalFunc) LoaderOp { return unmarshalls(fns) }
+
+// WithUnmarshal register single format unmarshal func
 func WithUnmarshal(format string, fn UnmarshalFunc) LoaderOp { return unmarshal{format, fn} }
 
 func NewLoaderWithPath(path string, opts ...LoaderOp) Loader {

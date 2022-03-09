@@ -1,9 +1,11 @@
 # go-i18n
 
 [![GitHub Workflow Status (branch)](https://img.shields.io/github/workflow/status/Charliego93/go-i18n/Go/main?logo=github)](https://github.com/Charliego93/go-i18n/actions/workflows/go.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/Charliego93/go-i18n)](https://goreportcard.com/report/github.com/Charliego93/go-i18n)
 [![Coveralls](https://img.shields.io/coveralls/github/Charliego93/go-i18n?logo=coveralls&color=8345D5)](https://coveralls.io/github/Charliego93/go-i18n?branch=main)
 [![GitHub tag (latest SemVer pre-release)](https://img.shields.io/github/v/tag/Charliego93/go-i18n?include_prereleases)](https://github.com/Charliego93/go-i18n/tags)
 [![GitHub](https://img.shields.io/github/license/Charliego93/go-i18n?color=D96BA2)](https://github.com/Charliego93/go-i18n/blob/main/LICENSE)
+[![GoDoc](https://godoc.org/github.com/Charliego93/go-i18n?status.svg)](https://godoc.org/github.com/Charliego93/go-i18n)
 
 Provides simplicity and ease of use, no specific framework restrictions, easy access to any framework based on `http.Handler`
 
@@ -28,7 +30,7 @@ package main
 import (
    "embed"
    "fmt"
-   "github.com/Charliego93/i18n"
+   "github.com/Charliego93/go-i18n"
    "github.com/gin-gonic/gin"
    "net/http"
 )
