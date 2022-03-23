@@ -103,7 +103,7 @@ func (i *I18n) AddLoader(loader Loader) {
 	i.SetLocalizer(i.language)
 }
 
-func (i *I18n) Tr(p interface{}) (string, error) {
+func (i *I18n) Tr(p any) (string, error) {
 	var lang language.Tag
 	if i.ctx != nil {
 		if value, ok := i.ctx.Value(languageKey).(language.Tag); ok {
@@ -216,12 +216,12 @@ func Localize(defaultLang language.Tag, opts ...Option) ContextHandler {
 //			"Name": "I18n",
 //		},
 //	})
-func Tr(messageId interface{}) (string, error) {
+func Tr[T string | LocalizeConfig | *LocalizeConfig](messageId T) (string, error) {
 	return i.Tr(messageId)
 }
 
 // MustTr called Tr but ignore error
-func MustTr(messageId interface{}) string {
+func MustTr[T string | LocalizeConfig | *LocalizeConfig](messageId T) string {
 	message, _ := Tr(messageId)
 	return message
 }

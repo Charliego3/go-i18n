@@ -126,6 +126,8 @@ func TestLocalize(t *testing.T) {
 		gin.WrapH(Localize(language.Chinese, NewLoaderWithFS(lan2Embed),
 			NewLoaderWithPath("examples/lan1"))))
 
+	t.Parallel()
+
 	type args struct {
 		lng       language.Tag
 		messageId string
