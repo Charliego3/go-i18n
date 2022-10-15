@@ -1,4 +1,4 @@
-module github.com/Charliego93/go-i18n
+module github.com/Charliego93/go-i18n/v2
 
 go 1.18
 
