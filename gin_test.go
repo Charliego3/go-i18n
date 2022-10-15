@@ -23,7 +23,7 @@ type server struct {
 
 func newServer(fn func(engine *server), opts ...Option) *server {
 	engine := gin.New()
-	g := Initialize(opts...)
+	g = Initialize(opts...)
 	s := &server{
 		engine:  engine,
 		Handler: g.Handler(engine),
