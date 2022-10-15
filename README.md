@@ -32,6 +32,7 @@ import (
    "fmt"
    "github.com/Charliego93/go-i18n"
    "github.com/gin-gonic/gin"
+   "golang.org/x/text/language"
    "net/http"
 )
 
@@ -41,20 +42,12 @@ var langFS embed.FS
 func main() {
    engine := gin.New()
 
-   // returns the default language if the header and language key are not specified or if the language does not exist
-   engine.Use(gin.WrapH(i18n.Localize(language.Chinese, i18n.NewLoaderWithPath("./examples/simple"))))
-
-   // Use multi loader provider
-   // Built-in load from file and load from fs.FS
-   // engine.Use(gin.WrapH(i18n.Localize(language.Chinese, 
-   //    i18n.NewLoaderWithFS(langFS), i18n.NewLoaderWithPath("./examples/lan1"))))
-
    // curl -H "Accept-Language: en" 'http://127.0.0.1:9090/Hello'  returns "hello"
    // curl -H "Accept-Language: uk" 'http://127.0.0.1:9090/Hello'  returns "Бонгу"
    // curl 'http://127.0.0.1:9090/Hello?lang=en'  returns "hello"
    // curl 'http://127.0.0.1:9090/Hello?lang=uk'  returns "Бонгу"
    engine.GET("/:messageId", func(ctx *gin.Context) {
-      ctx.String(http.StatusOK, i18n.MustTr(ctx.Param("messageId")))
+      ctx.String(http.StatusOK, i18n.MustTr(ctx.Request.Context(), ctx.Param("messageId")))
    })
 
    // curl -H "Accept-Language: en" 'http://127.0.0.1:9090/HelloName/I18n'  returns "hello I18n"
@@ -62,7 +55,7 @@ func main() {
    // curl 'http://127.0.0.1:9090/HelloName/I18n?lang=en'  returns "hello I18n"
    // curl 'http://127.0.0.1:9090/HelloName/I18n?lang=uk'  returns "Бонгу I18n"
    engine.GET("/:messageId/:name", func(ctx *gin.Context) {
-      ctx.String(http.StatusOK, i18n.MustTr(&i18n.LocalizeConfig{
+      ctx.String(http.StatusOK, i18n.MustTr(ctx.Request.Context(), &i18n.LocalizeConfig{
          MessageID: ctx.Param("messageId"),
          TemplateData: map[string]string{
             "Name": ctx.Param("name"),
@@ -70,7 +63,13 @@ func main() {
       }))
    })
 
-   fmt.Println(engine.Run())
+   // Use multi loader provider
+   // Built-in load from file and load from fs.FS
+   // i18n.Localize(engine, i18n.NewLoaderWithFS(langFS), i18n.NewLoaderWithPath("./examples/lan1"))))
+   
+   if err := http.ListenAndServe(":9090", i18n.Localize(engine, i18n.NewLoaderWithPath("./examples/simple"))); err != nil {
+	   panic(err)
+   }
 }
 ```
 

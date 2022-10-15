@@ -16,23 +16,25 @@ func init() {
 	gin.SetMode(gin.ReleaseMode)
 }
 
-type ginServer struct {
-	*gin.Engine
+type server struct {
+	http.Handler
+	engine *gin.Engine
 }
 
-func newGinServer(fn func(engine *ginServer), middleware ...gin.HandlerFunc) *ginServer {
+func newServer(fn func(engine *server), opts ...Option) *server {
 	engine := gin.New()
-	engine.Use(middleware...)
-
-	s := &ginServer{engine}
+	s := &server{
+		engine:  engine,
+		Handler: Localize(engine, opts...),
+	}
 	fn(s)
 	return s
 }
 
-func (s *ginServer) request(lan language.Tag, messageId, data string, count int64) string {
+func (s *server) request(lan string, messageId, data string, count int64) string {
 	path := "/" + filepath.Join(messageId, data) + "?count=" + strconv.FormatInt(count, 10)
 	req, _ := http.NewRequest("GET", path, nil)
-	req.Header.Add("Accept-Language", lan.String())
+	req.Header.Add("Accept-Language", lan)
 
 	w := httptest.NewRecorder()
 	s.ServeHTTP(w, req)
@@ -41,14 +43,13 @@ func (s *ginServer) request(lan language.Tag, messageId, data string, count int6
 }
 
 func TestSimple(t *testing.T) {
-	i = nil
-	business := func(engine *ginServer) {
-		engine.GET("/:messageId", func(ctx *gin.Context) {
-			ctx.String(http.StatusOK, MustTr(ctx.Param("messageId")))
+	business := func(g *server) {
+		g.engine.GET("/:messageId", func(ctx *gin.Context) {
+			ctx.String(http.StatusOK, MustTr(ctx.Request.Context(), ctx.Param("messageId")))
 		})
 
-		engine.GET("/:messageId/:name", func(ctx *gin.Context) {
-			ctx.String(http.StatusOK, MustTr(&i18n.LocalizeConfig{
+		g.engine.GET("/:messageId/:name", func(ctx *gin.Context) {
+			ctx.String(http.StatusOK, MustTr(ctx.Request.Context(), &i18n.LocalizeConfig{
 				MessageID: ctx.Param("messageId"),
 				TemplateData: map[string]string{
 					"Name": ctx.Param("name"),
@@ -57,10 +58,10 @@ func TestSimple(t *testing.T) {
 		})
 	}
 
-	gs := newGinServer(business, gin.WrapH(Localize(language.Chinese, NewLoaderWithPath("./examples/simple"))))
+	gs := newServer(business, NewLoaderWithPath("./examples/simple"))
 
 	type args struct {
-		lng       language.Tag
+		lng       string
 		messageId string
 		name      string
 	}
@@ -70,17 +71,17 @@ func TestSimple(t *testing.T) {
 		want string
 	}{
 		// Hello
-		{name: "chinese_hello", args: args{messageId: "Hello", lng: language.Chinese}, want: "你好"},
-		{name: "english_hello", args: args{messageId: "Hello", lng: language.English}, want: "hello"},
-		{name: "ukrainian_hello", args: args{messageId: "Hello", lng: language.Ukrainian}, want: "Бонгу"},
+		{name: "chinese_hello", args: args{messageId: "Hello", lng: "zh;q=0.9, en;q=0.8, de;q=0.7, fr;q=0.4, *;q=1"}, want: "你好"},
+		{name: "english_hello", args: args{messageId: "Hello", lng: "*"}, want: "hello"},
+		{name: "ukrainian_hello", args: args{messageId: "Hello", lng: language.Ukrainian.String()}, want: "Бонгу"},
 		// HelloName
-		{name: "chinese_hello_name", args: args{messageId: "HelloName", name: "尼克", lng: language.Chinese}, want: "你好尼克"},
-		{name: "english_hello_name", args: args{messageId: "HelloName", name: "Nick", lng: language.English}, want: "hello Nick"},
-		{name: "ukrainian_hello_name", args: args{messageId: "HelloName", name: "Nick", lng: language.Ukrainian}, want: "Бонгу Nick"},
+		{name: "chinese_hello_name", args: args{messageId: "HelloName", name: "尼克", lng: language.Chinese.String()}, want: "你好尼克"},
+		{name: "english_hello_name", args: args{messageId: "HelloName", name: "Nick", lng: language.English.String()}, want: "hello Nick"},
+		{name: "ukrainian_hello_name", args: args{messageId: "HelloName", name: "Nick", lng: language.Ukrainian.String()}, want: "Бонгу Nick"},
 		// PersonCats
-		{name: "chinese_hello", args: args{messageId: "PersonCats", name: "尼克", lng: language.Chinese}, want: "尼克有几只猫"},
-		{name: "english_hello", args: args{messageId: "PersonCats", name: "Nick", lng: language.English}, want: "Nick has a few cats"},
-		{name: "ukrainian_hello", args: args{messageId: "PersonCats", name: "Nick", lng: language.Ukrainian}, want: "Nick Є кілька котів"},
+		{name: "chinese_hello", args: args{messageId: "PersonCats", name: "尼克", lng: language.Chinese.String()}, want: "尼克有几只猫"},
+		{name: "english_hello", args: args{messageId: "PersonCats", name: "Nick", lng: language.English.String()}, want: "Nick has a few cats"},
+		{name: "ukrainian_hello", args: args{messageId: "PersonCats", name: "Nick", lng: language.Ukrainian.String()}, want: "Nick Є кілька котів"},
 	}
 
 	for _, tt := range tests {
@@ -97,22 +98,21 @@ func TestSimple(t *testing.T) {
 var lan2Embed embed.FS
 
 func TestLocalize(t *testing.T) {
-	i = nil
-	business := func(engine *ginServer) {
-		engine.GET("/default/:messageId", func(ctx *gin.Context) {
-			ctx.String(http.StatusOK, MustTr(ctx.Param("messageId")))
+	business := func(g *server) {
+		g.engine.GET("/default/:messageId", func(ctx *gin.Context) {
+			ctx.String(http.StatusOK, MustTr(ctx.Request.Context(), ctx.Param("messageId")))
 		})
 
-		engine.GET("/:messageId", func(ctx *gin.Context) {
-			ctx.String(http.StatusOK, MustTr(&i18n.LocalizeConfig{
+		g.engine.GET("/:messageId", func(ctx *gin.Context) {
+			ctx.String(http.StatusOK, MustTr(ctx.Request.Context(), &i18n.LocalizeConfig{
 				MessageID:   ctx.Param("messageId"),
 				PluralCount: ctx.Query("count"),
 			}))
 		})
 
-		engine.GET("/:messageId/:name", func(ctx *gin.Context) {
+		g.engine.GET("/:messageId/:name", func(ctx *gin.Context) {
 			count := ctx.Query("count")
-			ctx.String(http.StatusOK, MustTr(&i18n.LocalizeConfig{
+			ctx.String(http.StatusOK, MustTr(ctx.Request.Context(), &i18n.LocalizeConfig{
 				MessageID: ctx.Param("messageId"),
 				TemplateData: map[string]string{
 					"Name":  ctx.Param("name"),
@@ -122,9 +122,7 @@ func TestLocalize(t *testing.T) {
 			}))
 		})
 	}
-	gs := newGinServer(business,
-		gin.WrapH(Localize(language.Chinese, NewLoaderWithFS(lan2Embed),
-			NewLoaderWithPath("examples/lan1"))))
+	gs := newServer(business, NewLoaderWithFS(lan2Embed), NewLoaderWithPath("examples/lan1"))
 
 	t.Parallel()
 
@@ -190,7 +188,7 @@ func TestLocalize(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := gs.request(tt.args.lng, tt.args.messageId, tt.args.name, tt.args.count)
+			got := gs.request(tt.args.lng.String(), tt.args.messageId, tt.args.name, tt.args.count)
 			if got != tt.want {
 				t.Errorf("got %q, want %q", got, tt.want)
 			}
