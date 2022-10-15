@@ -24,7 +24,7 @@ func HeaderProvider(_ string, r *http.Request) language.Tag {
 	}
 
 	for i := 0; i < len(tags); {
-		if _, ok := gopt.localizes[tags[i]]; ok {
+		if _, ok := g.localizes[tags[i]]; ok {
 			i++
 			continue
 		}

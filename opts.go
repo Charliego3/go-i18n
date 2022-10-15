@@ -2,7 +2,7 @@ package i18n
 
 import "golang.org/x/text/language"
 
-type Option func(*options)
+type Option func(*I18n)
 
 // WithLoader Register the Loader interface to *I18n.bundle
 //
@@ -10,10 +10,10 @@ type Option func(*options)
 //
 //	//go:embed examples/lan2/*
 //	var langFS embed.FS
-//	i18n.Localize(http.Handler, i18n.NewLoaderWithPath("language_file_path"))
-//	i18n.Localize(http.Handler, i18n.NewLoaderWithFS(langFS, i18n.WithUnmarshal("json", json.Unmarshal)))
+//	i18n.Handler(http.Handler, i18n.NewLoaderWithPath("language_file_path"))
+//	i18n.Handler(http.Handler, i18n.NewLoaderWithFS(langFS, i18n.WithUnmarshal("json", json.Unmarshal)))
 func WithLoader(loader Loader) Option {
-	return func(o *options) {
+	return func(o *I18n) {
 		o.loaders = append(o.loaders, loader)
 	}
 }
@@ -25,7 +25,7 @@ func WithLoader(loader Loader) Option {
 // Example:
 //
 //	loader := i18n.NewLoaderWithPath("language_file_path")
-//	i18n.Localize(http.Handler, i18n.WithLoader(loader),
+//	i18n.Handler(http.Handler, i18n.WithLoader(loader),
 //	    i18n.WithLanguageProvider(i18n.LangHandlerFunc(func(r *http.Request) language.Tag {
 //		    lang := r.Header.Get("Accept-Language")
 //		    tag, err := language.Parse(lang)
@@ -36,7 +36,7 @@ func WithLoader(loader Loader) Option {
 //	    },
 //	)))
 func WithLanguageProvider(providers ...LanguageProvider) Option {
-	return func(o *options) {
+	return func(o *I18n) {
 		o.providers = providers
 	}
 }
@@ -47,9 +47,9 @@ func WithLanguageProvider(providers ...LanguageProvider) Option {
 // Example:
 //
 //	i18n.loader :=i18n.NewLoaderWithPath("language_file_path")
-//	i18n.Localize(http.Handler, i18n.WithLoader(loader), i18n.WithLanguageKey("default_language_key"))
+//	i18n.Handler(http.Handler, i18n.WithLoader(loader), i18n.WithLanguageKey("default_language_key"))
 func WithLanguageKey(key string) Option {
-	return func(o *options) {
+	return func(o *I18n) {
 		o.languageKey = key
 	}
 }
@@ -60,30 +60,27 @@ func WithLanguageKey(key string) Option {
 // Example:
 //
 //	i18n.loader :=i18n.NewLoaderWithPath("language_file_path")
-//	i18n.Localize(http.Handler, i18n.WithLoader(loader), i18n.WithDefaultLanguage(language.Chinese))
+//	i18n.Handler(http.Handler, i18n.WithLoader(loader), i18n.WithDefaultLanguage(language.Chinese))
 func WithDefaultLanguage(tag language.Tag) Option {
-	return func(o *options) {
+	return func(o *I18n) {
 		o.defLanguage = tag
 	}
 }
 
 // Loader Options
 
-type LOpt func(*FSLoader)
+type LOpt func(*fsLoader)
 
 // WithUnmarshalls register multi format unmarshal func
 func WithUnmarshalls(fns map[string]UnmarshalFunc) LOpt {
-	return func(l *FSLoader) {
-		l.ums = fns
+	return func(l *fsLoader) {
+		l.rs.Funcs = fns
 	}
 }
 
 // WithUnmarshal register single format unmarshal func
 func WithUnmarshal(format string, fn UnmarshalFunc) LOpt {
-	return func(l *FSLoader) {
-		if l.ums == nil {
-			l.ums = make(map[string]UnmarshalFunc)
-		}
-		l.ums[format] = fn
+	return func(l *fsLoader) {
+		l.rs.Funcs[format] = fn
 	}
 }

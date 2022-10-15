@@ -17,7 +17,7 @@ type LocalizeConfig = i18n.LocalizeConfig
 type UnmarshalFunc = i18n.UnmarshalFunc
 type LanguageProvider func(string, *http.Request) language.Tag
 
-type options struct {
+type I18n struct {
 	bundle      *i18n.Bundle
 	defLanguage language.Tag
 	localizes   map[language.Tag]*i18n.Localizer
@@ -26,21 +26,29 @@ type options struct {
 	languageKey string
 }
 
-func (o *options) setDefaultLang(lang language.Tag) {
-	o.defLanguage = lang
-	o.bundle = i18n.NewBundle(lang)
+func (g *I18n) setDefaultLang(lang language.Tag) {
+	g.defLanguage = lang
+	g.bundle = i18n.NewBundle(lang)
 }
 
-func (o *options) AddLoader(loader Loader) {
-	err := loader.ParseMessage(o)
+func (g *I18n) addLoader(loader Loader) {
+	result, err := loader.Load()
 	if err != nil {
 		panic(err)
 	}
-	o.SetLocalizer(o.defLanguage)
+
+	for format, fn := range result.Funcs {
+		g.registerUnmarshalFunc(format, fn)
+	}
+
+	for _, entry := range result.Entries {
+		g.setLocalizer(entry.Lauguage)
+		g.mastParseMessageFileBytes(entry.Bytes, entry.Name)
+	}
 }
 
-func (o *options) tr(ctx context.Context, p any) (string, error) {
-	lang := o.defLanguage
+func (g *I18n) tr(ctx context.Context, p any) (string, error) {
+	lang := g.defLanguage
 	if ctx != nil {
 		val := ctx.Value(acceptLanguage)
 		if l, ok := val.(language.Tag); ok {
@@ -48,7 +56,7 @@ func (o *options) tr(ctx context.Context, p any) (string, error) {
 		}
 	}
 
-	lr := o.getLocalizer(lang)
+	lr := g.getLocalizer(lang)
 	var config *i18n.LocalizeConfig
 	switch t := p.(type) {
 	case string:
@@ -68,84 +76,84 @@ func (o *options) tr(ctx context.Context, p any) (string, error) {
 	return translated, nil
 }
 
-func (o *options) getLanguage(r *http.Request) language.Tag {
-	for _, provider := range o.providers {
-		tag := provider(o.languageKey, r)
+func (g *I18n) getLanguage(r *http.Request) language.Tag {
+	for _, provider := range g.providers {
+		tag := provider(g.languageKey, r)
 		if !tag.IsRoot() {
 			return tag
 		}
 	}
-	return o.defLanguage
+	return g.defLanguage
 }
 
-func (o *options) registerUnmarshalFunc(format string) {
-	var fn UnmarshalFunc
+func getUnmarshaler(format string) UnmarshalFunc {
 	switch format {
 	case "json":
-		fn = json.Unmarshal
+		return json.Unmarshal
 	case "toml":
-		fn = toml.Unmarshal
+		return toml.Unmarshal
 	case "yaml":
-		fn = yaml.Unmarshal
-	}
-
-	if fn != nil {
-		o.RegisterUnmarshalFunc(format, fn)
+		return yaml.Unmarshal
+	default:
+		return nil
 	}
 }
 
-func (o *options) RegisterUnmarshalFunc(format string, unmarshalFunc UnmarshalFunc) {
-	o.bundle.RegisterUnmarshalFunc(format, unmarshalFunc)
+func (g *I18n) registerUnmarshalFunc(format string, unmarshalFunc UnmarshalFunc) {
+	g.bundle.RegisterUnmarshalFunc(format, unmarshalFunc)
 }
 
-func (o *options) MastParseMessageFileBytes(buf []byte, path string) {
-	o.bundle.MustParseMessageFileBytes(buf, path)
+func (g *I18n) mastParseMessageFileBytes(buf []byte, path string) {
+	g.bundle.MustParseMessageFileBytes(buf, path)
 }
 
-func (o *options) SetLocalizer(lang language.Tag) {
-	if _, ok := o.localizes[lang]; ok {
+func (g *I18n) setLocalizer(lang language.Tag) {
+	if _, ok := g.localizes[lang]; ok {
 		return
 	}
 
-	if o.localizes == nil {
-		o.localizes = make(map[language.Tag]*i18n.Localizer)
+	if g.localizes == nil {
+		g.localizes = make(map[language.Tag]*i18n.Localizer)
 	}
 
 	langs := []string{lang.String()}
-	if lang != o.defLanguage {
-		langs = append(langs, o.defLanguage.String())
+	if lang != g.defLanguage {
+		langs = append(langs, g.defLanguage.String())
 	}
 
-	o.localizes[lang] = i18n.NewLocalizer(o.bundle, langs...)
+	g.localizes[lang] = i18n.NewLocalizer(g.bundle, langs...)
 }
 
-func (o *options) getLocalizer(lang language.Tag) *i18n.Localizer {
-	if lr, ok := o.localizes[lang]; ok {
+func (g *I18n) getLocalizer(lang language.Tag) *i18n.Localizer {
+	if lr, ok := g.localizes[lang]; ok {
 		return lr
 	}
 
-	return o.localizes[o.defLanguage]
+	return g.localizes[g.defLanguage]
 }
 
-var gopt *options
+var g *I18n
 
-// Localize initialize i18n...
-func Localize(next http.Handler, opts ...Option) http.Handler {
-	gopt = &options{}
+func Initialize(opts ...Option) *I18n {
+	if g != nil {
+		return g
+	}
+
+	g = &I18n{}
 	for _, opt := range opts {
-		opt(gopt)
+		opt(g)
 	}
 
-	if gopt.defLanguage.IsRoot() {
-		gopt.setDefaultLang(language.English)
+	if g.defLanguage.IsRoot() {
+		g.setDefaultLang(language.English)
 	}
 
-	for _, loader := range gopt.loaders {
-		gopt.AddLoader(loader)
+	for _, loader := range g.loaders {
+		g.addLoader(loader)
 	}
 
-	if len(gopt.providers) == 0 {
-		gopt.providers = []LanguageProvider{
+	if len(g.providers) == 0 {
+		g.providers = []LanguageProvider{
 			HeaderProvider,
 			CookieProvider,
 			QueryProvider,
@@ -154,12 +162,17 @@ func Localize(next http.Handler, opts ...Option) http.Handler {
 		}
 	}
 
-	if len(gopt.languageKey) == 0 {
-		gopt.languageKey = "lang"
+	if len(g.languageKey) == 0 {
+		g.languageKey = "lang"
 	}
+	g.setLocalizer(g.defLanguage)
+	return g
+}
 
+// Handler returns http.Handler. It can be using a middleware...
+func (g *I18n) Handler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		tag := gopt.getLanguage(r)
+		tag := g.getLanguage(r)
 		r = r.WithContext(context.WithValue(r.Context(), acceptLanguage, tag))
 		next.ServeHTTP(w, r)
 	})
@@ -177,7 +190,10 @@ func Localize(next http.Handler, opts ...Option) http.Handler {
 //		},
 //	})
 func Tr[T string | LocalizeConfig | *LocalizeConfig](ctx context.Context, messageId T) (string, error) {
-	return gopt.tr(ctx, messageId)
+	if g == nil {
+		panic("i18n uninitialized, using i18n.Initialize(opts...) to init")
+	}
+	return g.tr(ctx, messageId)
 }
 
 // MustTr called Tr but ignore error

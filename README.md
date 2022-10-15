@@ -30,7 +30,7 @@ package main
 import (
    "embed"
    "fmt"
-   "github.com/Charliego93/go-i18n"
+   "github.com/Charliego93/go-i18n/v2"
    "github.com/gin-gonic/gin"
    "golang.org/x/text/language"
    "net/http"
@@ -65,24 +65,34 @@ func main() {
 
    // Use multi loader provider
    // Built-in load from file and load from fs.FS
-   // i18n.Localize(engine, i18n.NewLoaderWithFS(langFS), i18n.NewLoaderWithPath("./examples/lan1"))))
-   
-   if err := http.ListenAndServe(":9090", i18n.Localize(engine, i18n.NewLoaderWithPath("./examples/simple"))); err != nil {
-	   panic(err)
+   // i18n.Initialize(i18n.NewLoaderWithFS(langFS), i18n.NewLoaderWithPath("./examples/lan1"))))
+   g := i18n.Initialize(i18n.NewLoaderWithPath("./examples/simple"))
+   if err := http.ListenAndServe(":9090", g.Handler(engine)); err != nil {
+      panic(err)
    }
 }
 ```
 
 ## Customize Loader
 
-You can implement your own `Loader` by yourself, and even pull the language files from any 
-possible place to use, just pay attention when implementing the `ParseMessage(i *I18n) error` function:
-1. At least need to call `i.SetLocalizer(language.Tag)` and `i.MastParseMessageFileBytes([]byte, string)` to register with `Bundle`
-    - `[]byte` is the file content
-    - `string` is the file path: mainly used to parse the language and serialization type, for example: `en.yaml`
-2. Sometimes it is necessary to call `i.RegisterUnmarshalFunc(string, UnmarshalFunc)` to register the deserialization function:
-   - `string` is the format type. eg: `yaml`
-   - `UnmarshalFunc` eg: `json.Unmarshal` or `yaml.Unmarshal`
+You can implement your own `Loader` by yourself, and even pull the language files from anywhere
+
+```go
+type Loader interface {
+    Load() (*Result, error)
+}
+
+type Result struct {
+   Funcs   map[string]UnmarshalFunc
+   Entries []Entry
+}
+
+type Entry struct {
+   Lauguage language.Tag
+   Name     string
+   Bytes    []byte
+}
+```
 
 ## License
 
