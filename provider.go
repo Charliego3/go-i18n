@@ -7,52 +7,44 @@ import (
 
 func parseLanguage(val string) language.Tag {
 	if len(val) == 0 {
-		return language.Tag{}
+		return language.Und
 	}
 
 	tag, err := language.Parse(val)
 	if err != nil {
-		return language.Tag{}
+		return language.Und
 	}
 	return tag
 }
 
-func HeaderProvider(_ string, r *http.Request) language.Tag {
-	tags, qs, err := language.ParseAcceptLanguage(r.Header.Get(acceptLanguage))
+func ParseFromHeader(val string) language.Tag {
+	tags, _, err := language.ParseAcceptLanguage(val)
 	if err != nil {
-		return language.Tag{}
+		return language.Und
 	}
 
-	for i := 0; i < len(tags); {
-		if _, ok := g.localizes[tags[i]]; ok {
-			i++
-			continue
-		}
-
-		tags = append(tags[:i], tags[i+1:]...)
-		qs = append(qs[:i], qs[i+1:]...)
-	}
-
-	if len(tags) == 0 {
-		return language.Tag{}
-	}
-
-	w := float32(0.0)
-	idx := 0
-	for i, q := range qs {
-		if q > w {
-			w = q
+	idx := -1
+	for i, tag := range tags {
+		if _, ok := g.localizes[tag]; ok {
 			idx = i
+			break
 		}
 	}
 
+	if idx < 0 {
+		return language.Und
+	}
 	return tags[idx]
+}
+
+func HeaderProvider(_ string, r *http.Request) language.Tag {
+	return ParseFromHeader(r.Header.Get("Accept-Language"))
 }
 
 func CookieProvider(key string, r *http.Request) language.Tag {
 	val, err := r.Cookie(key)
 	if err != nil {
-		return language.Tag{}
+		return language.Und
 	}
 	return parseLanguage(val.Value)
 }

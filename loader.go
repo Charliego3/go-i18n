@@ -9,9 +9,9 @@ import (
 )
 
 type Entry struct {
-	Lauguage language.Tag
-	Name     string
-	Bytes    []byte
+	Tag   language.Tag
+	Name  string
+	Bytes []byte
 }
 
 type Result struct {
@@ -70,9 +70,9 @@ func (c *fsLoader) loadFile(path string) error {
 	}
 
 	c.rs.Entries = append(c.rs.Entries, Entry{
-		Lauguage: tag,
-		Name:     path,
-		Bytes:    buf,
+		Tag:   tag,
+		Name:  path,
+		Bytes: buf,
 	})
 	return nil
 }

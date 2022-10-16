@@ -11,11 +11,12 @@ import (
 	"net/http"
 )
 
-const acceptLanguage = "Accept-Language"
-
 type LocalizeConfig = i18n.LocalizeConfig
 type UnmarshalFunc = i18n.UnmarshalFunc
 type LanguageProvider func(string, *http.Request) language.Tag
+type MessageID interface {
+	~string | LocalizeConfig | ~*LocalizeConfig
+}
 
 type I18n struct {
 	bundle      *i18n.Bundle
@@ -42,7 +43,7 @@ func (g *I18n) addLoader(loader Loader) {
 	}
 
 	for _, entry := range result.Entries {
-		g.setLocalizer(entry.Lauguage)
+		g.setLocalizer(entry.Tag)
 		g.mastParseMessageFileBytes(entry.Bytes, entry.Name)
 	}
 }
@@ -50,7 +51,7 @@ func (g *I18n) addLoader(loader Loader) {
 func (g *I18n) tr(ctx context.Context, p any) (string, error) {
 	lang := g.defLanguage
 	if ctx != nil {
-		val := ctx.Value(acceptLanguage)
+		val := ctx.Value(g.languageKey)
 		if l, ok := val.(language.Tag); ok {
 			lang = l
 		}
@@ -146,6 +147,8 @@ func Initialize(opts ...Option) *I18n {
 
 	if g.defLanguage.IsRoot() {
 		g.setDefaultLang(language.English)
+	} else {
+		g.setDefaultLang(g.defLanguage)
 	}
 
 	for _, loader := range g.loaders {
@@ -163,7 +166,7 @@ func Initialize(opts ...Option) *I18n {
 	}
 
 	if len(g.languageKey) == 0 {
-		g.languageKey = "lang"
+		g.languageKey = "language"
 	}
 	g.setLocalizer(g.defLanguage)
 	return g
@@ -173,7 +176,7 @@ func Initialize(opts ...Option) *I18n {
 func (g *I18n) Handler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tag := g.getLanguage(r)
-		r = r.WithContext(context.WithValue(r.Context(), acceptLanguage, tag))
+		r = r.WithContext(context.WithValue(r.Context(), g.languageKey, tag))
 		next.ServeHTTP(w, r)
 	})
 }
@@ -189,7 +192,7 @@ func (g *I18n) Handler(next http.Handler) http.Handler {
 //			"Name": "I18n",
 //		},
 //	})
-func Tr[T string | LocalizeConfig | *LocalizeConfig](ctx context.Context, messageId T) (string, error) {
+func Tr[T MessageID](ctx context.Context, messageId T) (string, error) {
 	if g == nil {
 		panic("i18n uninitialized, using i18n.Initialize(opts...) to init")
 	}
@@ -197,7 +200,7 @@ func Tr[T string | LocalizeConfig | *LocalizeConfig](ctx context.Context, messag
 }
 
 // MustTr called Tr but ignore error
-func MustTr[T string | LocalizeConfig | *LocalizeConfig](ctx context.Context, messageId T) string {
+func MustTr[T MessageID](ctx context.Context, messageId T) string {
 	message, _ := Tr(ctx, messageId)
 	return message
 }
