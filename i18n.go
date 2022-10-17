@@ -166,7 +166,7 @@ func Initialize(opts ...Option) *I18n {
 	}
 
 	if len(g.languageKey) == 0 {
-		g.languageKey = "language"
+		g.languageKey = "accept-language"
 	}
 	g.setLocalizer(g.defLanguage)
 	return g
