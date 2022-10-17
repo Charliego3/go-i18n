@@ -11,11 +11,11 @@ import (
 	"net/http"
 )
 
-type LocalizeConfig = i18n.LocalizeConfig
+type Localized = i18n.LocalizeConfig
 type UnmarshalFunc = i18n.UnmarshalFunc
 type LanguageProvider func(string, *http.Request) language.Tag
-type MessageID interface {
-	~string | LocalizeConfig | ~*LocalizeConfig
+type Message interface {
+	~string | Localized | ~*Localized
 }
 
 type I18n struct {
@@ -185,22 +185,22 @@ func (g *I18n) Handler(next http.Handler) http.Handler {
 //
 // Example:
 //
-//	Tr("hello")
-//	Tr(LocalizeConfig{
-//		MessageID: "HelloName",
+//	Tr(ctx, "hello")
+//	Tr(ctx, &Localized{
+//		Message: "HelloName",
 //		TemplateData: map[string]string{
 //			"Name": "I18n",
 //		},
 //	})
-func Tr[T MessageID](ctx context.Context, messageId T) (string, error) {
+func Tr[T Message](ctx context.Context, message T) (string, error) {
 	if g == nil {
 		panic("i18n uninitialized, using i18n.Initialize(opts...) to init")
 	}
-	return g.tr(ctx, messageId)
+	return g.tr(ctx, message)
 }
 
 // MustTr called Tr but ignore error
-func MustTr[T MessageID](ctx context.Context, messageId T) string {
-	message, _ := Tr(ctx, messageId)
-	return message
+func MustTr[T Message](ctx context.Context, message T) string {
+	translated, _ := Tr(ctx, message)
+	return translated
 }
