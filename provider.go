@@ -1,8 +1,9 @@
 package i18n
 
 import (
-	"golang.org/x/text/language"
 	"net/http"
+
+	"golang.org/x/text/language"
 )
 
 func parseLanguage(val string) language.Tag {
@@ -37,11 +38,11 @@ func ParseFromHeader(val string) language.Tag {
 	return tags[idx]
 }
 
-func HeaderProvider(_ string, r *http.Request) language.Tag {
-	return ParseFromHeader(r.Header.Get("Accept-Language"))
+func HeaderProvider(r *http.Request, key string) language.Tag {
+	return ParseFromHeader(r.Header.Get(key))
 }
 
-func CookieProvider(key string, r *http.Request) language.Tag {
+func CookieProvider(r *http.Request, key string) language.Tag {
 	val, err := r.Cookie(key)
 	if err != nil {
 		return language.Und
@@ -49,14 +50,14 @@ func CookieProvider(key string, r *http.Request) language.Tag {
 	return parseLanguage(val.Value)
 }
 
-func QueryProvider(key string, r *http.Request) language.Tag {
+func QueryProvider(r *http.Request, key string) language.Tag {
 	return parseLanguage(r.URL.Query().Get(key))
 }
 
-func FormProvider(key string, r *http.Request) language.Tag {
+func FormProvider(r *http.Request, key string) language.Tag {
 	return parseLanguage(r.FormValue(key))
 }
 
-func PostFormProvider(key string, r *http.Request) language.Tag {
+func PostFormProvider(r *http.Request, key string) language.Tag {
 	return parseLanguage(r.PostFormValue(key))
 }

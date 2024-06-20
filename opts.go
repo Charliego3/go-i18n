@@ -26,18 +26,11 @@ func WithLoader(loader Loader) Option {
 //
 //	loader := i18n.NewLoaderWithPath("language_file_path")
 //	i18n.Handler(http.Handler, i18n.WithLoader(loader),
-//	    i18n.WithLanguageProvider(i18n.LangHandlerFunc(func(r *http.Request) language.Tag {
-//		    lang := r.Header.Get("Accept-Language")
-//		    tag, err := language.Parse(lang)
-//		    if err != nil {
-//			    return language.Chinese
-//		    }
-//		    return tag
-//	    },
-//	)))
-func WithLanguageProvider(providers ...LanguageProvider) Option {
+//		i18n.WithProvider(i18n.HeaderProvider)
+//	)
+func WithProvider[T, U any](provider LanguageProvider[T, U]) Option {
 	return func(o *I18n) {
-		o.providers = providers
+		languageProvider = provider
 	}
 }
 
@@ -48,7 +41,7 @@ func WithLanguageProvider(providers ...LanguageProvider) Option {
 //
 //	i18n.loader :=i18n.NewLoaderWithPath("language_file_path")
 //	i18n.Handler(http.Handler, i18n.WithLoader(loader), i18n.WithLanguageKey("default_language_key"))
-func WithLanguageKey(key string) Option {
+func WithLanguageKey(key any) Option {
 	return func(o *I18n) {
 		o.languageKey = key
 	}
@@ -63,7 +56,7 @@ func WithLanguageKey(key string) Option {
 //	i18n.Handler(http.Handler, i18n.WithLoader(loader), i18n.WithDefaultLanguage(language.Chinese))
 func WithDefaultLanguage(tag language.Tag) Option {
 	return func(o *I18n) {
-		o.defLanguage = tag
+		o.defaultlang = tag
 	}
 }
 

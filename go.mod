@@ -7,7 +7,7 @@ require (
 	github.com/gin-gonic/gin v1.7.7
 	github.com/nicksnyder/go-i18n/v2 v2.1.2
 	golang.org/x/text v0.3.7
-	gopkg.in/yaml.v2 v2.3.0
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -29,4 +29,5 @@ require (
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/protobuf v1.23.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f // indirect
+	gopkg.in/yaml.v2 v2.3.0 // indirect
 )
