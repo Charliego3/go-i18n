@@ -2,14 +2,15 @@ package i18n
 
 import (
 	"embed"
-	"github.com/gin-gonic/gin"
-	"github.com/nicksnyder/go-i18n/v2/i18n"
-	"golang.org/x/text/language"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
 	"strconv"
 	"testing"
+
+	"github.com/gin-gonic/gin"
+	"github.com/nicksnyder/go-i18n/v2/i18n"
+	"golang.org/x/text/language"
 )
 
 func init() {
@@ -60,7 +61,11 @@ func TestSimple(t *testing.T) {
 		})
 	}
 
-	gs := newServer(business, NewLoaderWithPath("./examples/simple"))
+	gs := newServer(
+		business,
+		NewLoaderWithPath("./examples/simple"),
+		WithProvider(HeaderProvider),
+	)
 
 	type args struct {
 		lng       string
@@ -124,7 +129,12 @@ func TestLocalize(t *testing.T) {
 			}))
 		})
 	}
-	gs := newServer(business, NewLoaderWithFS(lan2Embed), NewLoaderWithPath("examples/lan1"))
+	gs := newServer(
+		business,
+		NewLoaderWithFS(lan2Embed),
+		NewLoaderWithPath("examples/lan1"),
+		WithProvider(HeaderProvider),
+	)
 
 	t.Parallel()
 
