@@ -30,7 +30,7 @@ package main
 import (
    "embed"
    "fmt"
-   "github.com/Charliego93/go-i18n/v2"
+   "github.com/charliego3/go-i18n/v2"
    "github.com/gin-gonic/gin"
    "golang.org/x/text/language"
    "net/http"
@@ -65,8 +65,11 @@ func main() {
 
    // Use multi loader provider
    // Built-in load from file and load from fs.FS
-   // i18n.Initialize(i18n.NewLoaderWithFS(langFS), i18n.NewLoaderWithPath("./examples/lan1"))))
-   g := i18n.Initialize(i18n.NewLoaderWithPath("./examples/simple"))
+   // i18n.Initialize(i18n.NewLoaderWithFS(langFS), i18n.WithLanguageKey("lang"), i18n.WithProvider(i18n.QueryProvider))
+   g := i18n.Initialize(
+   		i18n.NewLoaderWithPath("./examples/simple"),
+     	i18n.WithProvider(i18n.HeaderProvider)
+   )
    if err := http.ListenAndServe(":9090", g.Handler(engine)); err != nil {
       panic(err)
    }
